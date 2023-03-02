@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style type="text/css">
+        .wrapper{ display: inherit; width: 100%; align-items: inherit; justify-content: inherit; }
+		.card{ max-width: 580px; margin: 0 auto; background: #ddd; border: 2px solid #ddd; border-radius: 5px; padding: 2em; text-align: center; box-shadow: 0 8px 24px rgba(0,0,0,0.2); }
+		.card h2{ font-family: Arial; font-size: 2.3em; color: #000; margin: 0 0 1em; text-transform: capitalize; }
+		.card p{ font-family: Arial; font-size: 1.5em; color: #000; margin: 0; }
+		.card .img{ padding-bottom: 1.1em; }
+		.card .img img{ width: 100%; }
+		/* #videoElement { display: None } */
+        #loader { display: none; border: 16px solid #f3f3f3; border-top: 16px solid #3498db; border-radius: 50%; width: 120px; height: 120px; animation: spin 2s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+    <body>
+        <a href=""></a>
+        <div id="loader"></div>
+        <video autoplay="true" id="videoElement">
+        
+        </video>
+
+        <div class="wrapper">
+            <div class="card">
+                <div class="img">
+                    <canvas id="reflay" class="overlay" width="100" height="100"></canvas>
+                </div>
+                <h2>Welcome <span></span>!</h2>
+                <p>Seat No: <span></span></p>
+            </div>
+        </div>
+
+        <!-- <img src="images/us.jpg" id="originalImg" /> -->
+        
+        <button id="checkIn">Check In</button>
+        <button id="checkOut">Check Out</button>
+        <button id="stop">Stop</button>
+        <button id="start">Detect again</button>
+
+        <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+        <script src="https://unpkg.dev/@vladmandic/face-api/dist/face-api.js"></script>
+        <script src="{{ url_for('static',filename='js/its.js') }}"></script>
+        <script>
+        $(document).ready(async function(){
+            var video = document.querySelector("#videoElement");
+            const canvas = $('#reflay').get(0);
+            video.srcObject = await navigator.mediaDevices.getUserMedia({ video: true });//document.getElementById('originalImg')
+            const displaySize = { width: $(video).width(), height: $(video).height() }
+
+            async function face(){
+
+                const MODEL_URL = `{{ url_for('static',filename='models') }}`
+
+                await faceapi.loadSsdMobilenetv1Model(MODEL_URL)
+                await faceapi.loadFaceLandmarkModel(MODEL_URL)
+                await faceapi.loadFaceRecognitionModel(MODEL_URL)
+                await faceapi.loadFaceExpressionModel(MODEL_URL)
+                if (!navigator.mediaDevices.getUserMedia) {
+                    console.log(navigator.mediaDevices.getUserMedia);
+                return;
+                }
+
+                faceapi.matchDimensions(canvas, displaySize)
+                console.log("VIDEO DISPLAY SIZE: ");
+                console.log(video, displaySize);
+
+                // await detectFace(video,displaySize, canvas);
+                var inter = setInterval(async function () {
+                    await detectFace(video,displaySize, canvas);
+                    console.log("Done setInterval");
+                    $('#loader').hide();
+                },2000);
+            }
+            face()
+        });
+        async function detectFace(video, displaySize, canvas){
+            $('#loader').show();
+            // console.log("Check: " + check);
+            const context = canvas.getContext('2d');
+
+            context.clearRect(0, 0, displaySize.width, displaySize.height);
+            let faceDescriptions = await faceapi.detectAllFaces(video).withFaceLandmarks().withFaceDescriptors().withFaceExpressions();
+            // console.log(faceDescriptions);
+            // console.log(canvas);
+            context.drawImage(video, 0, 0, displaySize.width, displaySize.height);
+            faceDescriptions = faceapi.resizeResults(faceDescriptions, displaySize)
+            faceapi.draw.drawDetections(canvas, faceDescriptions)
+            faceapi.draw.drawFaceLandmarks(canvas, faceDescriptions)
+            faceapi.draw.drawFaceExpressions(canvas, faceDescriptions)
+
+            const threshold = 0.6;
+            // const text = results.toString();
+            console.log(faceDescriptions);
+            const box = faceDescriptions.detection.box;
+            // var name = text.split("(")[0];
+            const drawBox = new faceapi.draw.DrawBox(box, { label: "hello" });
+            // console.log(name);
+            drawBox.draw(canvas);
+            // console.log(name);
+            drawBox.draw(video);
+            // }
+            
+            // const resp_data = await axios.post('/api/update',send_data);
+            
+
+            // if (!resp_data.data['error']) {
+
+            //     if(resp_data["exist, checkIn"] == true) {
+            //         var msg = "You've already checked in, Thank you!";
+            //         alert(msg);
+            //         speakText(msg);      
+            //     } else if(resp_data.data["exist, checkOut"] == true) {
+            //         var msg = "You haven't checked in, Thank you!";
+            //         alert(msg);
+            //         speakText(msg);
+            //     } else {
+            //         var msg = `${name} you've ${check}, Thank you`;
+            //         alert(msg);
+            //         const drawBox = new faceapi.draw.DrawBox(box, { label: name });
+            //         for (let i in results) {
+            //             const box = faceDescriptions[i].detection.box;
+            //             const text = results[i].toString();
+            //             var name = text.split("(")[0];
+            //             console.log(name);
+            //             drawBox.draw(canvas);
+            //             drawBox.draw(video);
+            //         }
+            //         speakText(msg);
+            //     }
+            // } else {
+            //     var msg = "Error";
+            //     console.log(msg);
+            // }
+        }
+        function speakText(text) {
+            utter.text = text;
+            window.speechSynthesis.speak(utter);
+            setTimeout(() => {
+                window.speechSynthesis.cancel();
+            }, 1000);
+        }
+        </script>
+    </body>
+</html>
